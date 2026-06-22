@@ -324,7 +324,8 @@ def remove_server(
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
-    return HTML_PAGE
+    # no-store so browsers always fetch the latest UI (avoids stale cached layout)
+    return HTMLResponse(HTML_PAGE, headers={"Cache-Control": "no-store"})
 
 
 HTML_PAGE = """
