@@ -364,21 +364,21 @@ HTML_PAGE = """
 
   /* left sidebar — vertical brand, scaffold for future nav */
   .sidebar {
-    position:fixed; top:0; left:0; bottom:0; width:86px; z-index:20;
-    display:flex; flex-direction:column; align-items:center; gap:20px; padding:24px 0;
+    position:fixed; top:0; left:0; bottom:0; width:124px; z-index:20;
+    display:flex; flex-direction:column; align-items:center; gap:22px; padding:26px 0;
     background:rgba(255,255,255,0.045);
     backdrop-filter:blur(24px) saturate(160%); -webkit-backdrop-filter:blur(24px) saturate(160%);
     border-right:1px solid var(--line);
     box-shadow:8px 0 30px rgba(0,0,0,.35);
-    transition:transform .32s cubic-bezier(.4,0,.2,1);
+    transition:width .3s cubic-bezier(.4,0,.2,1);
   }
   .logo { width:44px; height:44px; border-radius:13px; display:grid; place-items:center;
     background:linear-gradient(145deg, rgba(99,102,241,.65), rgba(168,85,247,.55));
     box-shadow:0 8px 20px rgba(99,102,241,.45), inset 0 1px 0 rgba(255,255,255,.45); }
-  .vtitle { writing-mode:vertical-rl; text-orientation:mixed; flex:1; white-space:nowrap;
-    display:flex; align-items:center; justify-content:center;
-    font-size:15px; font-weight:700; letter-spacing:5px; text-transform:uppercase;
-    background:linear-gradient(180deg,#ffffff 0%,#8b93ff 55%,#a855f7 100%);
+  .vtitle { writing-mode:vertical-rl; text-orientation:mixed; transform:rotate(180deg);
+    flex:1; white-space:nowrap; display:flex; align-items:center; justify-content:center;
+    font-size:16px; font-weight:700; letter-spacing:6px; text-transform:uppercase;
+    background:linear-gradient(0deg,#ffffff 0%,#8b93ff 55%,#a855f7 100%);
     -webkit-background-clip:text; background-clip:text; color:transparent;
     filter:drop-shadow(0 2px 10px rgba(129,140,248,.35)); }
   .sidefoot { writing-mode:vertical-rl; font-size:11px; letter-spacing:3px; text-transform:uppercase;
@@ -387,7 +387,7 @@ HTML_PAGE = """
     box-shadow:0 0 9px #3fb950; animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-  .main { margin-left:86px; min-height:100vh; transition:margin .32s; }
+  .main { margin-left:124px; min-height:100vh; transition:margin .32s; }
   .overlay { display:none; }
 
   header {
@@ -404,15 +404,19 @@ HTML_PAGE = """
 
   .grid { padding:24px 28px; }
 
-  /* mobile: hide sidebar off-canvas, reveal with the ☰ button */
+  /* mobile: sidebar collapses to just the icon square; ☰ expands it */
   @media (max-width:820px) {
-    .sidebar { transform:translateX(-100%); width:220px; align-items:flex-start; padding:24px 22px; }
-    .vtitle { writing-mode:horizontal-tb; flex:0; letter-spacing:3px; font-size:19px; justify-content:flex-start; }
-    .sidefoot { writing-mode:horizontal-tb; }
-    body.nav-open .sidebar { transform:translateX(0); }
-    .main { margin-left:0; }
+    .sidebar { width:62px; align-items:center; padding:18px 0; z-index:30; }
+    .sidebar .vtitle, .sidebar .sidefoot { display:none; }
+    .main { margin-left:62px; }
     .iconbtn { display:inline-flex; }
-    body.nav-open .overlay { display:block; position:fixed; inset:0; z-index:15;
+    body.nav-open .sidebar { width:244px; align-items:flex-start; padding:22px 20px; gap:18px;
+      box-shadow:8px 0 44px rgba(0,0,0,.6); }
+    body.nav-open .sidebar .vtitle { display:flex; writing-mode:horizontal-tb; transform:none; flex:0;
+      font-size:20px; letter-spacing:2px; justify-content:flex-start;
+      background:linear-gradient(90deg,#ffffff,#8b93ff,#a855f7); -webkit-background-clip:text; background-clip:text; }
+    body.nav-open .sidebar .sidefoot { display:flex; writing-mode:horizontal-tb; }
+    body.nav-open .overlay { display:block; position:fixed; inset:0; z-index:20;
       background:rgba(0,0,0,.55); backdrop-filter:blur(2px); }
   }
 
@@ -484,7 +488,7 @@ HTML_PAGE = """
 </head>
 <body>
   <aside class="sidebar" id="sidebar">
-    <div class="logo">
+    <div class="logo" id="logo">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
         <rect x="6" y="6" width="12" height="12" rx="2"/>
         <path d="M9 1.5v3M15 1.5v3M9 19.5v3M15 19.5v3M1.5 9h3M1.5 15h3M19.5 9h3M19.5 15h3"/>
@@ -521,6 +525,7 @@ const navToggle = document.getElementById('navToggle');
 const overlay = document.getElementById('overlay');
 navToggle.onclick = () => document.body.classList.toggle('nav-open');
 overlay.onclick = () => document.body.classList.remove('nav-open');
+document.getElementById('logo').onclick = () => document.body.classList.toggle('nav-open');
 
 // colour by how busy something is
 function colour(p) {
