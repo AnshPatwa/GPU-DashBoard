@@ -371,6 +371,7 @@ HTML_PAGE = """
     backdrop-filter:blur(24px) saturate(160%); -webkit-backdrop-filter:blur(24px) saturate(160%);
     border-right:1px solid var(--line);
     box-shadow:8px 0 30px rgba(0,0,0,.35);
+    overflow:hidden;
     transition:width .3s cubic-bezier(.4,0,.2,1);
   }
   .logo { width:44px; height:44px; border-radius:13px; display:grid; place-items:center;
@@ -415,12 +416,8 @@ HTML_PAGE = """
 
   /* mobile: sidebar collapses to just the icon square; ☰ expands it */
   @media (max-width:820px) {
-    .sidebar { width:248px; transform:translateX(-100%); align-items:flex-start;
-      padding:22px 20px; gap:18px; z-index:30; box-shadow:8px 0 44px rgba(0,0,0,.6); }
-    .sidebar .vtitle { writing-mode:horizontal-tb; transform:none; flex:0; justify-content:flex-start;
-      font-size:20px; letter-spacing:2px;
-      background:linear-gradient(90deg,#ffffff,#8b93ff,#a855f7); -webkit-background-clip:text; background-clip:text; }
-    .sidebar .sidefoot { writing-mode:horizontal-tb; }
+    .sidebar { width:120px; transform:translateX(-100%); align-items:center;
+      padding:24px 0; gap:22px; z-index:30; box-shadow:8px 0 44px rgba(0,0,0,.6); }
     .main { margin-left:0; }
     .iconbtn { display:inline-flex; }
     body.nav-open .sidebar { transform:translateX(0); }
