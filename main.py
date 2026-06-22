@@ -335,46 +335,109 @@ HTML_PAGE = """
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GPU Dashboard</title>
 <style>
-  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --text:#e6edf3; --muted:#8b949e; }
+  :root { --text:#eef2f9; --muted:#9aa4b2; --line:rgba(255,255,255,0.10); }
   * { box-sizing: border-box; }
-  body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); }
-  header { padding:24px 28px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:14px; }
-  header h1 { font-size:20px; margin:0; font-weight:600; }
-  header span { color:var(--muted); font-size:13px; }
-  .grid { padding:24px 28px; }
-  .server { border:1px solid var(--line); border-radius:16px; background:#0f141b; margin:0 0 22px; }
-  .server-head { display:flex; align-items:center; justify-content:space-between; gap:12px;
-                 padding:16px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  .server-head h2 { font-size:15px; margin:0; font-weight:600; }
-  .server-head .agg { display:flex; gap:8px; flex-wrap:wrap; }
-  .server-gpus { display:grid; gap:16px; padding:18px 20px;
-                 grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
-  .card h2 { margin:0 0 2px; font-size:15px; font-weight:600; }
-  .card .sub { color:var(--muted); font-size:12px; margin-bottom:18px; }
-  .metric { margin-bottom:16px; }
-  .metric .row { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
-  .metric .row b { font-weight:600; }
-  .bar { height:10px; border-radius:6px; background:#21262d; overflow:hidden; }
-  .bar > i { display:block; height:100%; width:0; border-radius:6px; transition:width .4s ease, background .4s ease; }
-  .pills { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
-  .pill { font-size:12px; color:var(--muted); background:#21262d; border:1px solid var(--line);
-          padding:4px 10px; border-radius:20px; }
-  .pill b { color:var(--text); }
-  #error { padding:16px 28px; color:#f85149; font-size:14px; display:none; }
+  body {
+    margin:0; min-height:100vh; color:var(--text);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(1100px circle at 12% 6%, rgba(99,102,241,0.20), transparent 42%),
+      radial-gradient(900px circle at 88% 10%, rgba(20,184,166,0.16), transparent 42%),
+      radial-gradient(1000px circle at 50% 110%, rgba(168,85,247,0.18), transparent 50%),
+      linear-gradient(165deg, #0b0e16 0%, #05060a 60%, #020308 100%);
+    background-attachment: fixed;
+  }
+  /* slow-drifting ambient light behind the glass — the "liquid" */
+  body::before, body::after {
+    content:""; position:fixed; z-index:-1; border-radius:50%;
+    filter:blur(90px); opacity:.5; pointer-events:none;
+  }
+  body::before { width:520px; height:520px; top:-120px; left:-90px;
+    background:radial-gradient(circle, rgba(79,70,229,.55), transparent 70%);
+    animation:drift1 19s ease-in-out infinite alternate; }
+  body::after { width:560px; height:560px; bottom:-170px; right:-120px;
+    background:radial-gradient(circle, rgba(168,85,247,.45), transparent 70%);
+    animation:drift2 23s ease-in-out infinite alternate; }
+  @keyframes drift1 { from{transform:translate(0,0) scale(1)} to{transform:translate(130px,90px) scale(1.15)} }
+  @keyframes drift2 { from{transform:translate(0,0) scale(1)} to{transform:translate(-110px,-70px) scale(1.12)} }
+
+  header {
+    position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:14px;
+    padding:20px 30px; border-bottom:1px solid var(--line);
+    background:rgba(255,255,255,0.03);
+    backdrop-filter:blur(20px) saturate(150%); -webkit-backdrop-filter:blur(20px) saturate(150%);
+  }
+  header h1 { margin:0; font-size:19px; font-weight:650; letter-spacing:.2px;
+    background:linear-gradient(90deg,#ffffff,#9aa4b2); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  header #status { color:var(--muted); font-size:13px; }
   header .spacer { flex:1; }
-  .btn { font:inherit; font-size:13px; color:var(--text); background:#21262d; cursor:pointer;
-         border:1px solid var(--line); border-radius:8px; padding:7px 14px; }
-  .btn:hover { border-color:#8b949e; }
-  #addPanel { display:none; gap:8px; align-items:center; padding:14px 28px;
-              border-bottom:1px solid var(--line); background:#0f141b; flex-wrap:wrap; }
-  #addPanel input { font:inherit; font-size:13px; color:var(--text); background:#0d1117;
-                    border:1px solid var(--line); border-radius:8px; padding:8px 12px; }
+
+  .grid { padding:26px 30px; max-width:1500px; margin:0 auto; }
+
+  /* super-card: a faint glass frame around a server's GPUs */
+  .server {
+    margin:0 0 24px; border:1px solid var(--line); border-radius:22px; overflow:hidden;
+    background:rgba(255,255,255,0.025);
+    backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%);
+    box-shadow:0 12px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.10);
+  }
+  .server-head { display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:18px 22px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .server-head h2 { margin:0; font-size:15px; font-weight:600; }
+  .server-head .agg { display:flex; gap:8px; flex-wrap:wrap; }
+  .server-gpus { display:grid; gap:18px; padding:22px;
+    grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); }
+
+  /* liquid glass GPU card */
+  .card {
+    position:relative; overflow:hidden; padding:22px; border-radius:20px;
+    border:1px solid rgba(255,255,255,0.14);
+    background:linear-gradient(150deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03) 60%);
+    backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%);
+    box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25), inset 0 -1px 1px rgba(0,0,0,.25);
+    transition:transform .25s ease, box-shadow .25s ease;
+  }
+  .card::before { content:""; position:absolute; inset:0; z-index:0; pointer-events:none; border-radius:inherit;
+    background:linear-gradient(140deg, rgba(255,255,255,0.18), rgba(255,255,255,0) 40%); }
+  .card::after { content:""; position:absolute; top:-45%; left:-25%; width:90%; height:90%; z-index:0; pointer-events:none;
+    background:radial-gradient(circle, rgba(255,255,255,0.14), transparent 65%); }
+  .card > * { position:relative; z-index:1; }
+  .card:hover { transform:translateY(-3px);
+    box-shadow:0 18px 46px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.32); }
+  .card h2 { margin:0 0 3px; font-size:15px; font-weight:600; }
+
+  .sub { color:var(--muted); font-size:12px; }
+  .card .sub { margin-bottom:18px; }
+
+  .metric { margin-bottom:16px; }
+  .metric .row { display:flex; justify-content:space-between; font-size:13px; margin-bottom:7px; }
+  .metric .row b { font-weight:600; }
+  .bar { height:11px; border-radius:8px; overflow:hidden; background:rgba(255,255,255,0.07);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.5), inset 0 -1px 0 rgba(255,255,255,.05); }
+  .bar > i { display:block; height:100%; width:0; border-radius:8px;
+    transition:width .5s cubic-bezier(.4,0,.2,1), background .4s ease; }
+
+  .pills { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .pill { font-size:12px; color:var(--muted); border-radius:20px; padding:5px 12px;
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); backdrop-filter:blur(6px); }
+  .pill b { color:#fff; }
+
+  #error { padding:16px 30px; color:#ff7b72; font-size:14px; display:none; }
+
+  .btn { font:inherit; font-size:13px; color:var(--text); cursor:pointer; border-radius:10px; padding:8px 16px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16);
+    backdrop-filter:blur(10px); transition:background .2s, border-color .2s; }
+  .btn:hover { background:rgba(255,255,255,0.15); border-color:rgba(255,255,255,0.30); }
+  #addPanel { display:none; gap:8px; align-items:center; flex-wrap:wrap; padding:16px 30px;
+    background:rgba(255,255,255,0.03); border-bottom:1px solid var(--line); backdrop-filter:blur(16px); }
+  #addPanel input { font:inherit; font-size:13px; color:var(--text); border-radius:10px; padding:9px 13px;
+    background:rgba(0,0,0,0.30); border:1px solid rgba(255,255,255,0.14); }
+  #addPanel input:focus { outline:none; border-color:rgba(99,102,241,0.7); }
   #addPanel #srvUrl { flex:1; min-width:280px; }
   #addMsg { font-size:13px; color:var(--muted); }
-  .rm { cursor:pointer; color:var(--muted); border:1px solid var(--line); background:#21262d;
-        border-radius:6px; font-size:12px; padding:2px 8px; }
-  .rm:hover { color:#f85149; border-color:#f85149; }
+  .rm { cursor:pointer; color:var(--muted); border-radius:8px; font-size:12px; padding:3px 9px;
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); }
+  .rm:hover { color:#ff7b72; border-color:#ff7b72; }
 </style>
 </head>
 <body>
@@ -409,10 +472,11 @@ function colour(p) {
 const gib = (mib) => (mib / 1024).toFixed(1);
 
 function metric(label, percent, detail) {
+  const c = colour(percent);
   return `
     <div class="metric">
       <div class="row"><span>${label}</span><b>${detail}</b></div>
-      <div class="bar"><i style="width:${percent}%;background:${colour(percent)}"></i></div>
+      <div class="bar"><i style="width:${percent}%;background:linear-gradient(90deg,${c}88,${c});box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 0 14px ${c}66"></i></div>
     </div>`;
 }
 
