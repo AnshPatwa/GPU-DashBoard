@@ -18,7 +18,9 @@
 set -euo pipefail
 
 RAW="https://raw.githubusercontent.com/AnshPatwa/GPU-DashBoard/main"
-AGENT_DIR="$HOME/gpu-agent"
+# Each run creates a NEW dated folder so installs don't overwrite each other.
+STAMP="$(date +%Y%m%d-%H%M%S)"
+AGENT_DIR="$HOME/gpu-agent-$STAMP"
 PORT=8900
 APP_LOG="$AGENT_DIR/app.log"
 TUNNEL_LOG="$AGENT_DIR/tunnel.log"
@@ -41,7 +43,7 @@ mkdir -p "$AGENT_DIR"
 cd "$AGENT_DIR"
 curl -fsSL -o gpu_fastapi.py    "$RAW/gpu_fastapi.py"
 curl -fsSL -o requirements.txt  "$RAW/requirements.txt"
-ok "downloaded gpu_fastapi.py + requirements.txt"
+ok "downloaded gpu_fastapi.py + requirements.txt into a fresh folder"
 
 say "3/5  Setting up Python venv + dependencies"
 [ -d .venv ] || python3 -m venv .venv
@@ -58,28 +60,32 @@ else
   ok "already present: $($CLOUDFLARED --version 2>&1 | head -1)"
 fi
 
-say "5/5  Starting agent on 127.0.0.1:$PORT and the Cloudflare tunnel"
-
+say "5/5  Stopping any previous agent/tunnel, then starting fresh from this folder"
+# Each install creates a new folder, so previous instances must be stopped
+# (only one process can bind port 8900 at a time).
 if pgrep -f "uvicorn gpu_fastapi:app.*--port $PORT" >/dev/null; then
-  ok "agent already running (pid $(pgrep -f "uvicorn gpu_fastapi:app.*--port $PORT" | head -1))"
-else
-  nohup .venv/bin/python -m uvicorn gpu_fastapi:app --host 127.0.0.1 --port "$PORT" \
-    > "$APP_LOG" 2>&1 &
-  sleep 3
-  ok "agent started (pid $!)"
+  pkill -f "uvicorn gpu_fastapi:app.*--port $PORT" || true
+  sleep 2
+  ok "stopped old agent"
 fi
+if pgrep -f "cloudflared tunnel --url http://localhost:$PORT" >/dev/null; then
+  pkill -f "cloudflared tunnel --url http://localhost:$PORT" || true
+  sleep 2
+  ok "stopped old tunnel"
+fi
+
+nohup .venv/bin/python -m uvicorn gpu_fastapi:app --host 127.0.0.1 --port "$PORT" \
+  > "$APP_LOG" 2>&1 &
+sleep 3
+ok "agent started (pid $!) in $AGENT_DIR"
 
 if ! curl -sf -m 5 "http://127.0.0.1:$PORT/api/gpus" >/dev/null; then
   warn "local /api/gpus did not respond — see $APP_LOG"
 fi
 
-if pgrep -f "cloudflared tunnel --url http://localhost:$PORT" >/dev/null; then
-  ok "tunnel already running (pid $(pgrep -f "cloudflared tunnel --url http://localhost:$PORT" | head -1))"
-else
-  : > "$TUNNEL_LOG"
-  nohup "$CLOUDFLARED" tunnel --url "http://localhost:$PORT" > "$TUNNEL_LOG" 2>&1 &
-  ok "tunnel started (pid $!) — waiting for public URL..."
-fi
+: > "$TUNNEL_LOG"
+nohup "$CLOUDFLARED" tunnel --url "http://localhost:$PORT" > "$TUNNEL_LOG" 2>&1 &
+ok "tunnel started (pid $!) — waiting for public URL..."
 
 URL=""
 for _ in $(seq 1 15); do

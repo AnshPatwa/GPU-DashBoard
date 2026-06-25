@@ -14,7 +14,9 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/AnshPatwa/GPU-DashBoard.git"
-REPO_DIR="$HOME/gpu-dashboard"
+# Each run creates a NEW dated folder so installs don't overwrite each other.
+STAMP="$(date +%Y%m%d-%H%M%S)"
+REPO_DIR="$HOME/gpu-dashboard-$STAMP"
 PORT=8900
 APP_LOG="$REPO_DIR/app.log"
 TUNNEL_LOG="$REPO_DIR/tunnel.log"
@@ -32,15 +34,10 @@ command -v wget    >/dev/null || die "wget not found — try: sudo apt install -
 command -v nvidia-smi >/dev/null || warn "nvidia-smi not on PATH — the agent will return 'no GPU access' until NVIDIA drivers are installed"
 ok "python3 / git / wget present"
 
-say "2/6  Cloning or updating repo at $REPO_DIR"
-if [ -d "$REPO_DIR/.git" ]; then
-  git -C "$REPO_DIR" pull --ff-only
-  ok "repo updated"
-else
-  git clone "$REPO_URL" "$REPO_DIR"
-  ok "repo cloned"
-fi
+say "2/6  Cloning repo into a fresh folder: $REPO_DIR"
+git clone "$REPO_URL" "$REPO_DIR"
 cd "$REPO_DIR"
+ok "repo cloned"
 
 say "3/6  Setting up Python venv + dependencies"
 if [ ! -d .venv ]; then
@@ -59,29 +56,34 @@ else
   ok "already present: $($CLOUDFLARED --version 2>&1 | head -1)"
 fi
 
-say "5/6  Starting the GPU service on 127.0.0.1:$PORT"
+say "5/6  Stopping any previous agent, then starting fresh from this folder"
+# Each install creates a new folder, so previous instances must be stopped
+# (only one process can bind port 8900 at a time).
 if pgrep -f "uvicorn gpu_fastapi:app.*--port $PORT" >/dev/null; then
-  ok "already running (pid $(pgrep -f "uvicorn gpu_fastapi:app.*--port $PORT" | head -1))"
-else
-  nohup .venv/bin/python -m uvicorn gpu_fastapi:app --host 127.0.0.1 --port "$PORT" \
-    > "$APP_LOG" 2>&1 &
-  sleep 3
-  ok "started (pid $!)"
+  pkill -f "uvicorn gpu_fastapi:app.*--port $PORT" || true
+  sleep 2
+  ok "stopped old agent"
 fi
+
+nohup .venv/bin/python -m uvicorn gpu_fastapi:app --host 127.0.0.1 --port "$PORT" \
+  > "$APP_LOG" 2>&1 &
+sleep 3
+ok "agent started (pid $!) in $REPO_DIR"
 
 # verify locally
 if ! curl -sf -m 5 "http://127.0.0.1:$PORT/api/gpus" >/dev/null; then
   warn "local /api/gpus did not respond — see $APP_LOG"
 fi
 
-say "6/6  Starting cloudflared tunnel -> http://localhost:$PORT"
+say "6/6  Stopping any previous tunnel, then starting fresh"
 if pgrep -f "cloudflared tunnel --url http://localhost:$PORT" >/dev/null; then
-  ok "tunnel already running (pid $(pgrep -f "cloudflared tunnel --url http://localhost:$PORT" | head -1))"
-else
-  : > "$TUNNEL_LOG"   # truncate so we read a fresh URL
-  nohup "$CLOUDFLARED" tunnel --url "http://localhost:$PORT" > "$TUNNEL_LOG" 2>&1 &
-  ok "tunnel started (pid $!) — waiting for public URL..."
+  pkill -f "cloudflared tunnel --url http://localhost:$PORT" || true
+  sleep 2
+  ok "stopped old tunnel"
 fi
+: > "$TUNNEL_LOG"
+nohup "$CLOUDFLARED" tunnel --url "http://localhost:$PORT" > "$TUNNEL_LOG" 2>&1 &
+ok "tunnel started (pid $!) — waiting for public URL..."
 
 # wait up to ~30s for the trycloudflare URL to appear
 URL=""

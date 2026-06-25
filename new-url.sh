@@ -20,14 +20,11 @@ set -euo pipefail
 PORT=8900
 CLOUDFLARED="$HOME/cloudflared"
 
-# Pick whichever install directory exists (install-agent.sh uses ~/gpu-agent,
-# setup.sh uses ~/gpu-dashboard). Fall back to ~/gpu-agent if neither — the
-# tunnel doesn't care about the directory, it just needs a place to log.
-if [ -d "$HOME/gpu-agent" ]; then
-  DIR="$HOME/gpu-agent"
-elif [ -d "$HOME/gpu-dashboard" ]; then
-  DIR="$HOME/gpu-dashboard"
-else
+# Find the most recent install folder. install-agent.sh creates
+# ~/gpu-agent-YYYYMMDD-HHMMSS and setup.sh creates ~/gpu-dashboard-YYYYMMDD-HHMMSS.
+# We pick whichever is newest (or fall back to a fresh ~/gpu-agent if none exist).
+DIR="$(ls -1dt "$HOME"/gpu-agent-* "$HOME"/gpu-dashboard-* 2>/dev/null | head -1 || true)"
+if [ -z "$DIR" ]; then
   DIR="$HOME/gpu-agent"
   mkdir -p "$DIR"
 fi
