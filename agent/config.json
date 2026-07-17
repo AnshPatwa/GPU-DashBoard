@@ -1,0 +1,8 @@
+{
+  "server_urls": [
+    "ws://192.168.29.200:8765/ws/agent"
+  ],
+  "token": "",
+  "interval": 2.0,
+  "hostname": null
+}
